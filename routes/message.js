@@ -43,14 +43,14 @@ router.get('/:userId', auth, async (req, res) => {
 });
 
 // DELETE all messages
-// router.delete('/all', auth, async (req, res) => {
-   // try {
-   //     await Message.deleteMany({});
-   //     res.json({ message: 'All messages deleted' });
-  //  } catch (err) {
-   //     res.status(500).json({ message: 'Server error', err });
-  //  }
-// });
+router.delete('/all', auth, async (req, res) => {
+   try {
+       await Message.deleteMany({});
+      res.json({ message: 'All messages deleted' });
+  } catch (err) {
+     res.status(500).json({ message: 'Server error', err });
+  }
+});
 
 
 module.exports = router;

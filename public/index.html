@@ -122,6 +122,8 @@
 </div>
 
 <script>
+const BASE_URL = 'https://your-render-url.onrender.com'; // <-- replace with your Render URL
+
 let token = '';
 let userId = '';
 let otherUserId = '';
@@ -134,7 +136,7 @@ async function login() {
   if (!username || !password) return alert('Enter username and password');
 
   // Try login first
-  let res = await fetch('http://localhost:5000/api/auth/login', {
+  let res = await fetch(`${BASE_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
@@ -143,7 +145,7 @@ async function login() {
 
   if (res.status !== 200) {
     // Try register if login fails
-    const registerRes = await fetch('http://localhost:5000/api/auth/register', {
+    const registerRes = await fetch(`${BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -167,7 +169,7 @@ async function login() {
 
 // Fetch the other user's ID
 async function setOtherUser() {
-  const res = await fetch('http://localhost:5000/api/auth/users', {
+  const res = await fetch(`${BASE_URL}/api/auth/users`, {
     headers: { 'Authorization': 'Bearer ' + token }
   });
   const users = await res.json();
@@ -181,7 +183,7 @@ async function sendMessage() {
   const text = document.getElementById('message').value.trim();
   if (!text || !otherUserId) return;
 
-  const res = await fetch('http://localhost:5000/api/messages', {
+  const res = await fetch(`${BASE_URL}/api/messages`, {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
@@ -198,11 +200,11 @@ async function sendMessage() {
   fetchMessages();
 }
 
-// Fetch messages and show read receipts
+// Fetch messages
 async function fetchMessages() {
   if (!otherUserId) return;
 
-  const res = await fetch(`http://localhost:5000/api/messages/${otherUserId}`, {
+  const res = await fetch(`${BASE_URL}/api/messages/${otherUserId}`, {
     headers: { 'Authorization': 'Bearer ' + token }
   });
   const messages = await res.json();
@@ -215,13 +217,12 @@ async function fetchMessages() {
     div.classList.add(msg.sender === userId ? 'you' : 'other');
     div.textContent = msg.text;
 
-    // Add read receipt for your sent messages
     if (msg.sender === userId) {
       const receipt = document.createElement('span');
       receipt.style.fontSize = '0.8rem';
       receipt.style.marginLeft = '5px';
       receipt.textContent = msg.seen ? '✓✓' : '✓';
-      receipt.style.color = msg.seen ? '#ff1493' : '#fff'; // girly color for seen
+      receipt.style.color = msg.seen ? '#ff1493' : '#fff';
       div.appendChild(receipt);
     }
 
