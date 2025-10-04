@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MY TANGI SUPER CHAT</title>
+<style>
+  /* Body & container */
+  body { 
+    font-family: 'Comic Sans MS', Arial, sans-serif; 
+    background: #ffe6f0; 
+    margin: 0; 
+    padding: 0; 
+    display: flex; 
+    justify-content: center; 
+    align-items: flex-start; 
+    min-height: 100vh; 
+  }
+  #chatApp { 
+    width: 100%; 
+    max-width: 500px; 
+    margin-top: 50px; 
+    background: #fff0f5; 
+    border-radius: 20px; 
+    box-shadow: 0 6px 15px rgba(255, 105, 180, 0.3); 
+    overflow: hidden; 
+  }
+
+  /* Header */
+  h2 { 
+    text-align: center; 
+    color: #ff69b4; 
+    margin: 20px 0 0 0; 
+    font-family: 'Comic Sans MS', cursive; 
+  }
+
+  /* Login container */
+  #loginContainer, #chatContainer { padding: 20px; }
+  input[type=text], input[type=password] { 
+    width: calc(100% - 20px); 
+    padding: 12px; 
+    margin: 5px 0 10px 0; 
+    border-radius: 12px; 
+    border: 1px solid #ffb6c1; 
+    outline: none;
+  }
+  input[type=text]:focus, input[type=password]:focus { border-color: #ff69b4; }
+
+  button { 
+    padding: 12px 15px; 
+    border: none; 
+    border-radius: 12px; 
+    background: #ff69b4; 
+    color: #fff; 
+    cursor: pointer; 
+    font-weight: bold; 
+  }
+  button:hover { background: #ff1493; }
+
+  /* Chat area */
+  #chat { 
+    height: 300px; 
+    overflow-y: scroll; 
+    border: 1px solid #ffb6c1; 
+    border-radius: 15px; 
+    padding: 15px; 
+    background: #fff0f5; 
+    margin-bottom: 10px; 
+  }
+  .message { 
+    padding: 10px 15px; 
+    margin-bottom: 10px; 
+    border-radius: 20px; 
+    max-width: 70%; 
+    word-wrap: break-word; 
+    font-weight: 500; 
+    font-size: 0.95rem;
+  }
+  .you { 
+    background: #ff69b4; 
+    color: #fff; 
+    margin-left: auto; 
+    text-align: right; 
+  }
+  .other { 
+    background: #ffe4f1; 
+    color: #ff1493; 
+    margin-right: auto; 
+    text-align: left; 
+  }
+
+  /* Input area */
+  #inputArea { display: flex; gap: 10px; }
+  #message { 
+    flex: 1; 
+    padding: 12px; 
+    border-radius: 12px; 
+    border: 1px solid #ffb6c1; 
+    outline: none;
+  }
+  #message:focus { border-color: #ff69b4; }
+</style>
+</head>
+<body>
+
+<div id="chatApp">
+  <h2>MY TANGI SUPER CHAT</h2>
+
+  <div id="loginContainer">
+    <input type="text" id="username" placeholder="Enter your username">
+    <input type="password" id="password" placeholder="Enter your password">
+    <button onclick="login()">Login / Register</button>
+  </div>
+
+  <div id="chatContainer" style="display:none;">
+    <div id="chat"></div>
+    <div id="inputArea">
+      <input type="text" id="message" placeholder="Type your message...">
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let token = '';
+let userId = '';
+let otherUserId = '';
+
+// Login or Register
+async function login() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+
+  if (!username || !password) return alert('Enter username and password');
+
+  // Try login first
+  let res = await fetch('http://localhost:5000/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  let data = await res.json();
+
+  if (res.status !== 200) {
+    // Try register if login fails
+    const registerRes = await fetch('http://localhost:5000/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    data = await registerRes.json();
+    if (registerRes.status !== 200) return alert('Error: ' + JSON.stringify(data));
+  }
+
+  token = data.token;
+
+  // Decode JWT to get userId
+  const payload = JSON.parse(atob(token.split('.')[1]));
+  userId = payload.user.id;
+
+  document.getElementById('loginContainer').style.display = 'none';
+  document.getElementById('chatContainer').style.display = 'block';
+
+  await setOtherUser();
+  startFetchingMessages();
+}
+
+// Fetch the other user's ID
+async function setOtherUser() {
+  const res = await fetch('http://localhost:5000/api/auth/users', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const users = await res.json();
+  if (users.length < 2) return alert('Waiting for the other user to register...');
+  
+  otherUserId = users.find(u => u._id !== userId)._id;
+}
+
+// Send a message
+async function sendMessage() {
+  const text = document.getElementById('message').value.trim();
+  if (!text || !otherUserId) return;
+
+  const res = await fetch('http://localhost:5000/api/messages', {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify({ receiverId: otherUserId, text })
+  });
+
+  if (!res.ok) {
+    console.log('Send message failed', await res.text());
+  }
+
+  document.getElementById('message').value = '';
+  fetchMessages();
+}
+
+// Fetch messages and show read receipts
+async function fetchMessages() {
+  if (!otherUserId) return;
+
+  const res = await fetch(`http://localhost:5000/api/messages/${otherUserId}`, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const messages = await res.json();
+  const chatDiv = document.getElementById('chat');
+  chatDiv.innerHTML = '';
+
+  messages.forEach(msg => {
+    const div = document.createElement('div');
+    div.classList.add('message');
+    div.classList.add(msg.sender === userId ? 'you' : 'other');
+    div.textContent = msg.text;
+
+    // Add read receipt for your sent messages
+    if (msg.sender === userId) {
+      const receipt = document.createElement('span');
+      receipt.style.fontSize = '0.8rem';
+      receipt.style.marginLeft = '5px';
+      receipt.textContent = msg.seen ? '✓✓' : '✓';
+      receipt.style.color = msg.seen ? '#ff1493' : '#fff'; // girly color for seen
+      div.appendChild(receipt);
+    }
+
+    chatDiv.appendChild(div);
+  });
+
+  chatDiv.scrollTop = chatDiv.scrollHeight;
+}
+
+// Poll messages every 2 seconds
+function startFetchingMessages() {
+  fetchMessages();
+  setInterval(fetchMessages, 2000);
+}
+
+// Send message on Enter key
+document.getElementById('message').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') sendMessage();
+});
+</script>
+
+
+</body>
+</html>
